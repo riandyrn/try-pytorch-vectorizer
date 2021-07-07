@@ -38,7 +38,10 @@ class Vectorizer:
             model = nn.Sequential(*list(model.children())[:-1])
         elif model_name is VectorModels.MobileNetV2:
             model = models.mobilenet_v2(pretrained=True)
-            model = model._modules.get('features')
+            model = nn.Sequential(
+                model._modules.get('features'),
+                nn.AdaptiveAvgPool2d((1, 1))
+            )
         elif model_name is VectorModels.MobileNetV3:
             model = models.mobilenet_v3_small(pretrained=True)
             model = model._modules.get('features')
@@ -56,15 +59,19 @@ class Vectorizer:
         # set the model to property
         self.model = model
 
-    def get_vector(self, img):
+    def get_vector(self, img, tensor=False):
         # convert image binary into input tensor
         input_batch = self.image_preprocess(img).unsqueeze(0)
         if self.cuda:
             input_batch = input_batch.to('cuda')
-        return self.model(input_batch).flatten().detach().numpy()
+
+        output = self.model(input_batch)
+        if tensor:
+            return output
+        return output.flatten().detach().numpy()
 
 
-v = Vectorizer(model_name=VectorModels.ResNet18)
+v = Vectorizer(model_name=VectorModels.MobileNetV2)
 input_image = Image.open('face_2.jpg')
 compare_images = [
     Image.open('car_1.jpg'),
