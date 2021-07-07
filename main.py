@@ -43,12 +43,20 @@ class Vectorizer:
         extraction_layer = None
         if model_name is VectorModels.ResNet18:
             model = models.resnet18(pretrained=True)
+            # in resnet18, the last layer before classification layer
+            # is avgpool, so we will use output value in that layer
             extraction_layer = model.avgpool
         elif model_name is VectorModels.MobileNetV2:
             model = models.mobilenet_v2(pretrained=True)
+            # in mobilenetv2, the last layer before classification layer
+            # is located in classifier layers group, so we fetch it from
+            # this group
             extraction_layer = model.classifier[-2]
         elif model_name is VectorModels.MobileNetV3:
             model = models.mobilenet_v3_small(pretrained=True)
+            # in mobilenetv3, the last layer before classification layer
+            # is located in classifier layers group, so we fetch it from
+            # this group
             extraction_layer = model.classifier[-2]
         # set the model mode into evaluation mode, this mode is used
         # when the model is used for inferencing
