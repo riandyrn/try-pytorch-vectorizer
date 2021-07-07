@@ -19,6 +19,13 @@ class VectorModels(enum.Enum):
 
 
 class Vectorizer:
+
+    output_sizes = {
+        VectorModels.ResNet18: 512,
+        VectorModels.MobileNetV2: 1280,
+        VectorModels.MobileNetV3: 1024
+    }
+
     def __init__(self, cuda=False, model_name=VectorModels.ResNet18):
         # initialize image preprocessor for converting image binary
         # to format that match the input for vectorizer model
@@ -33,21 +40,24 @@ class Vectorizer:
         ])
         # determine model that we will be using for the vectorizer
         model = None
+        extraction_layer = None
         if model_name is VectorModels.ResNet18:
             model = models.resnet18(pretrained=True)
-            model = nn.Sequential(*list(model.children())[:-1])
+            # in resnet18, the last layer before classification layer
+            # is avgpool, so we will use output value in that layer
+            extraction_layer = model.avgpool
         elif model_name is VectorModels.MobileNetV2:
             model = models.mobilenet_v2(pretrained=True)
-            model = nn.Sequential(
-                model.features,
-                nn.AdaptiveAvgPool2d((1, 1))
-            )
+            # in mobilenetv2, the last layer before classification layer
+            # is located in classifier layers group, so we fetch it from
+            # this group
+            extraction_layer = model.classifier[-2]
         elif model_name is VectorModels.MobileNetV3:
             model = models.mobilenet_v3_small(pretrained=True)
-            model = nn.Sequential(
-                model.features,
-                model.avgpool
-            )
+            # in mobilenetv3, the last layer before classification layer
+            # is located in classifier layers group, so we fetch it from
+            # this group
+            extraction_layer = model.classifier[-2]
         # set the model mode into evaluation mode, this mode is used
         # when the model is used for inferencing
         model.eval()
@@ -61,6 +71,8 @@ class Vectorizer:
             model.to('cuda')
         # set the model to property
         self.model = model
+        self.model_name = model_name
+        self.extraction_layer = extraction_layer
 
     def get_vector(self, img, tensor=False):
         # convert image binary into input tensor
@@ -68,10 +80,21 @@ class Vectorizer:
         if self.cuda:
             input_batch = input_batch.to('cuda')
 
-        output = self.model(input_batch)
+        if self.model_name == VectorModels.ResNet18:
+            output = torch.zeros(1, self.output_sizes[self.model_name], 1, 1)
+        else:
+            output = torch.zeros(1, self.output_sizes[self.model_name])
+
+        def copy_data(m, i, o):
+            output.copy_(o.data)
+
+        h = self.extraction_layer.register_forward_hook(copy_data)
+        self.model(input_batch)
+        h.remove()
+
         if tensor:
             return output
-        return output.flatten().detach().numpy()
+        return output.flatten().numpy()
 
 
 if __name__ == "__main__":
