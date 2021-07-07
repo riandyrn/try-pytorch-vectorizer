@@ -38,10 +38,16 @@ class Vectorizer:
             model = nn.Sequential(*list(model.children())[:-1])
         elif model_name is VectorModels.MobileNetV2:
             model = models.mobilenet_v2(pretrained=True)
-            model = model._modules.get('features')
+            model = nn.Sequential(
+                model.features,
+                nn.AdaptiveAvgPool2d((1, 1))
+            )
         elif model_name is VectorModels.MobileNetV3:
             model = models.mobilenet_v3_small(pretrained=True)
-            model = model._modules.get('features')
+            model = nn.Sequential(
+                model.features,
+                model.avgpool
+            )
         # set the model mode into evaluation mode, this mode is used
         # when the model is used for inferencing
         model.eval()
@@ -56,30 +62,42 @@ class Vectorizer:
         # set the model to property
         self.model = model
 
-    def get_vector(self, img):
+    def get_vector(self, img, tensor=False):
         # convert image binary into input tensor
         input_batch = self.image_preprocess(img).unsqueeze(0)
         if self.cuda:
             input_batch = input_batch.to('cuda')
-        return self.model(input_batch).flatten().detach().numpy()
+
+        output = self.model(input_batch)
+        if tensor:
+            return output
+        return output.flatten().detach().numpy()
 
 
-v = Vectorizer(model_name=VectorModels.ResNet18)
-input_image = Image.open('face_2.jpg')
-compare_images = [
-    Image.open('car_1.jpg'),
-    Image.open('car_2.jpg'),
-    Image.open('car_3.jpg'),
-    Image.open('cat_1.jpg'),
-    Image.open('cat_2.jpg'),
-    Image.open('catdog_1.jpg'),
-    Image.open('face_1.jpg'),
-    Image.open('face_2.jpg'),
-]
+if __name__ == "__main__":
+    model_names = [
+        VectorModels.ResNet18,
+        VectorModels.MobileNetV2,
+        VectorModels.MobileNetV3,
+    ]
+    for model_name in model_names:
+        print(f"${model_name}:")
+        v = Vectorizer(model_name=model_name)
+        input_image = Image.open('face_2.jpg')
+        compare_images = [
+            Image.open('car_1.jpg'),
+            Image.open('car_2.jpg'),
+            Image.open('car_3.jpg'),
+            Image.open('cat_1.jpg'),
+            Image.open('cat_2.jpg'),
+            Image.open('catdog_1.jpg'),
+            Image.open('face_1.jpg'),
+            Image.open('face_2.jpg'),
+        ]
 
-for compare_image in compare_images:
-    vector_input = v.get_vector(input_image)
-    vector_compare = v.get_vector(compare_image)
+        for compare_image in compare_images:
+            vector_input = v.get_vector(input_image)
+            vector_compare = v.get_vector(compare_image)
 
-    dist = np.linalg.norm(vector_input - vector_compare)
-    print(dist)
+            dist = np.linalg.norm(vector_input - vector_compare)
+            print(dist)
