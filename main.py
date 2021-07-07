@@ -83,21 +83,23 @@ if __name__ == "__main__":
     for model_name in model_names:
         print(f"${model_name}:")
         v = Vectorizer(model_name=model_name)
-        input_image = Image.open('face_2.jpg')
+        input_image = 'face_2.jpg'
         compare_images = [
-            Image.open('car_1.jpg'),
-            Image.open('car_2.jpg'),
-            Image.open('car_3.jpg'),
-            Image.open('cat_1.jpg'),
-            Image.open('cat_2.jpg'),
-            Image.open('catdog_1.jpg'),
-            Image.open('face_1.jpg'),
-            Image.open('face_2.jpg'),
+            'car_1.jpg',
+            'car_2.jpg',
+            'car_3.jpg',
+            'cat_1.jpg',
+            'cat_2.jpg',
+            'catdog_1.jpg',
+            'face_1.jpg',
+            'face_2.jpg',
         ]
 
         for compare_image in compare_images:
-            vector_input = v.get_vector(input_image)
-            vector_compare = v.get_vector(compare_image)
+            vector_input = v.get_vector(Image.open("./images/" + input_image))
+            vector_compare = v.get_vector(
+                Image.open("./images/" + compare_image)
+            )
 
             dist = np.linalg.norm(vector_input - vector_compare)
             print(dist)
